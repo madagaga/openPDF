@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>openPDF – Éditeur PDF</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="group">
+      <strong class="brand">openPDF</strong>
+      <label class="btn">Ouvrir<input type="file" id="open" accept="application/pdf" hidden></label>
+      <label class="btn">Ajouter PDF<input type="file" id="merge" accept="application/pdf" hidden></label>
+      <button class="btn" id="blank">Page blanche</button>
+    </div>
+    <div class="group tools">
+      <button data-tool="select" title="Sélection (V)">↖ Sélection</button>
+      <button data-tool="text" title="Texte (T)">T Texte</button>
+      <button data-tool="highlight" title="Surligner (H)">▮ Surligner</button>
+      <button data-tool="rect" title="Rectangle (R)">▢ Rectangle</button>
+      <button data-tool="whiteout" title="Masquer (W)">▭ Blanc</button>
+      <button data-tool="ink" title="Dessin (D)">✎ Dessin</button>
+      <label class="btn" title="Image">🖼 Image<input type="file" id="image" accept="image/png,image/jpeg" hidden></label>
+      <button id="sign" title="Signature">✍ Signature</button>
+    </div>
+    <div class="group props">
+      <input type="color" id="color" value="#000000" title="Couleur">
+      <select id="font" title="Police">
+        <option value="Helvetica">Helvetica</option>
+        <option value="Times">Times</option>
+        <option value="Courier">Courier</option>
+      </select>
+      <input type="number" id="size" value="14" min="4" max="144" title="Taille du texte">
+      <input type="number" id="width" value="2" min="1" max="30" title="Épaisseur du trait">
+    </div>
+    <div class="group">
+      <button class="btn" id="undo" title="Annuler (Ctrl+Z)">↶</button>
+      <button class="btn" id="redo" title="Rétablir (Ctrl+Y)">↷</button>
+      <button class="btn" id="zoomOut">−</button>
+      <span id="zoomLabel">125%</span>
+      <button class="btn" id="zoomIn">+</button>
+      <button class="btn primary" id="download">Télécharger</button>
+    </div>
+  </header>
+
+  <main>
+    <aside id="thumbs"></aside>
+    <section id="view">
+      <div id="drop" class="drop">
+        <p>Glisse un PDF ici</p>
+        <label class="btn primary">Choisir un fichier<input type="file" id="open2" accept="application/pdf" hidden></label>
+        <p class="hint">Tout reste dans ton navigateur : aucun fichier n'est envoyé.</p>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="signDlg">
+    <p>Dessine ta signature</p>
+    <canvas id="pad" width="500" height="180"></canvas>
+    <div class="row">
+      <button class="btn" id="padClear">Effacer</button>
+      <button class="btn" id="padCancel">Annuler</button>
+      <button class="btn primary" id="padOk">Placer</button>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
