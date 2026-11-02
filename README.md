@@ -102,6 +102,12 @@ Puis ouvrez http://localhost:8123.
 
 ---
 
+## LIVE DEMO
+
+https://madagaga.github.io/openPDF/
+
+---
+
 ## License / Licence
 
 pdf.js – Apache-2.0 · pdf-lib – MIT
