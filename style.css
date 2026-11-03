@@ -7,21 +7,47 @@
   --sel: #3b6ef5;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; font: 14px system-ui, sans-serif; color: var(--text); background: var(--bg); }
 body { display: flex; flex-direction: column; }
 
-.toolbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--border); }
-.group { display: flex; gap: 4px; align-items: center; }
-.brand { margin-right: 8px; color: var(--accent); }
 button, .btn { font: inherit; padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background: #fff; cursor: pointer; white-space: nowrap; }
 button:hover, .btn:hover { background: #f2f4f8; }
+button:disabled { opacity: .5; cursor: default; }
 .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .primary:hover { background: #2f5ad0; }
-.tools button.active { background: #e3eaff; border-color: var(--accent); color: var(--accent); }
-.props input[type=number] { width: 56px; padding: 4px; }
-.props select { padding: 4px; }
-.props input[type=color] { width: 34px; height: 30px; padding: 0 2px; }
+
+/* barre d'accès rapide + ruban à onglets */
+.app { background: var(--panel); border-bottom: 1px solid var(--border); }
+.qa { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 6px 12px; }
+.qa .spacer { flex: 1; }
+.qa select { padding: 4px; }
+.brand { margin-right: 8px; color: var(--accent); }
 #zoomLabel { min-width: 44px; text-align: center; }
+
+.tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--border); }
+.tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 6px 14px; }
+.tabs button:hover { background: #f2f4f8; }
+.tabs button.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+.ribbon { display: flex; background: #f7f8fa; padding: 6px 12px; min-height: 84px; }
+.panel { display: none; }
+.panel.active { display: flex; }
+.rgroup { display: flex; flex-direction: column; padding: 0 12px; border-right: 1px solid var(--border); }
+.rgroup:first-child { padding-left: 0; }
+.rbtns { display: flex; gap: 4px; flex: 1; align-items: stretch; }
+.rlabel { margin-top: 4px; font-size: 11px; color: #777; text-align: center; }
+.rb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 62px; padding: 4px 8px; font-size: 12px; white-space: normal; text-align: center; }
+.rb .ic { font-size: 20px; line-height: 1.2; }
+.rb.active { background: #e3eaff; border-color: var(--accent); color: var(--accent); }
+#props { margin-left: auto; border-right: none; border-left: 1px solid var(--border); }
+#props .rbtns { align-items: center; }
+#props input[type=number] { width: 56px; padding: 4px; }
+#props select { padding: 4px; }
+#props input[type=color] { width: 34px; height: 30px; padding: 0 2px; }
+
+.bar { display: flex; gap: 8px; align-items: center; padding: 6px 12px; background: #fff7dc; border-top: 1px solid #ecd58a; }
+.bar span { flex: 1; }
 
 main { flex: 1; display: flex; min-height: 0; }
 #thumbs { width: 170px; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--border); padding: 10px; }
@@ -43,6 +69,8 @@ main { flex: 1; display: flex; min-height: 0; }
 .page.dragging .overlay { overflow: visible; }
 .overlay.draw { cursor: crosshair; }
 .overlay.place { cursor: copy; }
+.overlay.edit { cursor: text; }
+.hot { position: absolute; pointer-events: none; background: rgba(59,110,245,.15); outline: 1px solid var(--sel); }
 
 .a { position: absolute; }
 .a.sel { outline: 2px solid var(--sel); outline-offset: 1px; }
@@ -62,3 +90,11 @@ svg.ink polyline.sel { filter: drop-shadow(0 0 2px var(--sel)); }
 dialog { border: none; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
 #pad { border: 1px solid var(--border); border-radius: 6px; touch-action: none; max-width: 100%; }
 .row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+
+#savesDlg { width: min(640px, 92vw); }
+#savesDlg h3 { margin: 0 0 4px; }
+.save { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+.save .info { flex: 1; min-width: 0; }
+.save .name { font-weight: 600; overflow-wrap: anywhere; }
+.save .meta { font-size: 12px; color: #777; }
+.save .btns { display: flex; gap: 4px; }

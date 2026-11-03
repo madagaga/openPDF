@@ -9,40 +9,110 @@
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 </head>
 <body>
-  <header class="toolbar">
-    <div class="group">
+  <header class="app">
+    <div class="qa">
       <strong class="brand">openPDF</strong>
-      <label class="btn">Ouvrir<input type="file" id="open" accept="application/pdf" hidden></label>
-      <label class="btn">Ajouter PDF<input type="file" id="merge" accept="application/pdf" hidden></label>
-      <button class="btn" id="blank">Page blanche</button>
-    </div>
-    <div class="group tools">
-      <button data-tool="select" title="Sélection (V)">↖ Sélection</button>
-      <button data-tool="text" title="Texte (T)">T Texte</button>
-      <button data-tool="highlight" title="Surligner (H)">▮ Surligner</button>
-      <button data-tool="rect" title="Rectangle (R)">▢ Rectangle</button>
-      <button data-tool="whiteout" title="Masquer (W)">▭ Blanc</button>
-      <button data-tool="ink" title="Dessin (D)">✎ Dessin</button>
-      <label class="btn" title="Image">🖼 Image<input type="file" id="image" accept="image/png,image/jpeg" hidden></label>
-      <button id="sign" title="Signature">✍ Signature</button>
-    </div>
-    <div class="group props">
-      <input type="color" id="color" value="#000000" title="Couleur">
-      <select id="font" title="Police">
-        <option value="Helvetica">Helvetica</option>
-        <option value="Times">Times</option>
-        <option value="Courier">Courier</option>
-      </select>
-      <input type="number" id="size" value="14" min="4" max="144" title="Taille du texte">
-      <input type="number" id="width" value="2" min="1" max="30" title="Épaisseur du trait">
-    </div>
-    <div class="group">
-      <button class="btn" id="undo" title="Annuler (Ctrl+Z)">↶</button>
-      <button class="btn" id="redo" title="Rétablir (Ctrl+Y)">↷</button>
-      <button class="btn" id="zoomOut">−</button>
+      <button class="btn" id="undo" data-i18n-title="tip.undo">↶</button>
+      <button class="btn" id="redo" data-i18n-title="tip.redo">↷</button>
+      <button class="btn" id="zoomOut" data-i18n-title="tip.zoomOut">−</button>
       <span id="zoomLabel">125%</span>
-      <button class="btn" id="zoomIn">+</button>
-      <button class="btn primary" id="download">Télécharger</button>
+      <button class="btn" id="zoomIn" data-i18n-title="tip.zoomIn">+</button>
+      <span class="spacer"></span>
+      <select id="lang" data-i18n-title="lang.label"></select>
+      <button class="btn primary" id="download" data-i18n="btn.download">Télécharger</button>
+    </div>
+
+    <nav class="tabs">
+      <button data-tab="file" data-i18n="tab.file">Fichier</button>
+      <button data-tab="edit" data-i18n="tab.edit">Édition</button>
+      <button data-tab="insert" data-i18n="tab.insert">Insertion</button>
+      <button data-tab="page" data-i18n="tab.page">Page</button>
+    </nav>
+
+    <div class="ribbon">
+      <div class="panel" data-panel="file">
+        <div class="rgroup">
+          <div class="rbtns">
+            <label class="btn rb" data-i18n-title="tip.open"><span class="ic">📂</span><span data-i18n="btn.open">Ouvrir</span><input type="file" id="open" accept="application/pdf" hidden></label>
+            <label class="btn rb" data-i18n-title="tip.merge"><span class="ic">➕</span><span data-i18n="btn.merge">Ajouter PDF</span><input type="file" id="merge" accept="application/pdf" hidden></label>
+          </div>
+          <div class="rlabel" data-i18n="g.document">Document</div>
+        </div>
+        <div class="rgroup">
+          <div class="rbtns">
+            <button class="btn rb" id="save" data-i18n-title="tip.save"><span class="ic">💾</span><span data-i18n="btn.save">Sauvegarder</span></button>
+            <button class="btn rb" id="saves" data-i18n-title="tip.saves"><span class="ic">🗂</span><span data-i18n="btn.saves">Sauvegardes…</span></button>
+          </div>
+          <div class="rlabel" data-i18n="g.project">Projet</div>
+        </div>
+      </div>
+
+      <div class="panel" data-panel="edit">
+        <div class="rgroup">
+          <div class="rbtns">
+            <button class="btn rb" data-tool="select" data-i18n-title="tip.select"><span class="ic">↖</span><span data-i18n="tool.select">Sélection</span></button>
+            <button class="btn rb" data-tool="edit" data-i18n-title="tip.edit"><span class="ic">Aa</span><span data-i18n="tool.edit">Éditer le texte</span></button>
+          </div>
+          <div class="rlabel" data-i18n="g.tools">Outils</div>
+        </div>
+      </div>
+
+      <div class="panel" data-panel="insert">
+        <div class="rgroup">
+          <div class="rbtns">
+            <button class="btn rb" data-tool="text" data-i18n-title="tip.text"><span class="ic">T</span><span data-i18n="tool.text">Texte</span></button>
+            <button class="btn rb" data-tool="rect" data-i18n-title="tip.rect"><span class="ic">▢</span><span data-i18n="tool.rect">Rectangle</span></button>
+            <button class="btn rb" data-tool="highlight" data-i18n-title="tip.highlight"><span class="ic">▮</span><span data-i18n="tool.highlight">Surligner</span></button>
+            <button class="btn rb" data-tool="whiteout" data-i18n-title="tip.whiteout"><span class="ic">▭</span><span data-i18n="tool.whiteout">Blanc</span></button>
+          </div>
+          <div class="rlabel" data-i18n="g.shapes">Texte et formes</div>
+        </div>
+        <div class="rgroup">
+          <div class="rbtns">
+            <button class="btn rb" data-tool="ink" data-i18n-title="tip.ink"><span class="ic">✎</span><span data-i18n="tool.ink">Dessin</span></button>
+            <button class="btn rb" id="sign" data-i18n-title="tip.sign"><span class="ic">✍</span><span data-i18n="tool.sign">Signature</span></button>
+          </div>
+          <div class="rlabel" data-i18n="g.drawing">Dessin</div>
+        </div>
+        <div class="rgroup">
+          <div class="rbtns">
+            <label class="btn rb" data-i18n-title="tip.image"><span class="ic">🖼</span><span data-i18n="tool.image">Image</span><input type="file" id="image" accept="image/png,image/jpeg" hidden></label>
+          </div>
+          <div class="rlabel" data-i18n="g.image">Image</div>
+        </div>
+      </div>
+
+      <div class="panel" data-panel="page">
+        <div class="rgroup">
+          <div class="rbtns">
+            <button class="btn rb" id="blank" data-i18n-title="tip.pageBlank"><span class="ic">📄</span><span data-i18n="page.blank">Page blanche</span></button>
+            <button class="btn rb" id="pgL"><span class="ic">↺</span><span data-i18n="page.rotL">Pivoter à gauche</span></button>
+            <button class="btn rb" id="pgR"><span class="ic">↻</span><span data-i18n="page.rotR">Pivoter à droite</span></button>
+            <button class="btn rb" id="pgX"><span class="ic">🗑</span><span data-i18n="page.delete">Supprimer</span></button>
+          </div>
+          <div class="rlabel" data-i18n="g.pages">Page courante</div>
+        </div>
+      </div>
+
+      <div class="rgroup props" id="props">
+        <div class="rbtns">
+          <input type="color" id="color" value="#000000" data-i18n-title="prop.color">
+          <select id="font" data-i18n-title="prop.font">
+            <option value="Helvetica">Helvetica</option>
+            <option value="Times">Times</option>
+            <option value="Courier">Courier</option>
+          </select>
+          <input type="number" id="size" value="14" min="4" max="144" data-i18n-title="prop.size">
+          <input type="number" id="width" value="2" min="1" max="30" data-i18n-title="prop.width">
+        </div>
+        <div class="rlabel" data-i18n="g.props">Propriétés</div>
+      </div>
+    </div>
+
+    <div class="bar" id="restoreBar" hidden>
+      <span id="restoreMsg"></span>
+      <button class="btn primary" id="restoreYes" data-i18n="bar.restore">Restaurer</button>
+      <button class="btn" id="restoreNo" data-i18n="bar.ignore">Ignorer</button>
     </div>
   </header>
 
@@ -50,23 +120,36 @@
     <aside id="thumbs"></aside>
     <section id="view">
       <div id="drop" class="drop">
-        <p>Glisse un PDF ici</p>
-        <label class="btn primary">Choisir un fichier<input type="file" id="open2" accept="application/pdf" hidden></label>
-        <p class="hint">Tout reste dans ton navigateur : aucun fichier n'est envoyé.</p>
+        <p data-i18n="drop.title">Glisse un PDF ici</p>
+        <label class="btn primary"><span data-i18n="drop.choose">Choisir un fichier</span><input type="file" id="open2" accept="application/pdf" hidden></label>
+        <p class="hint" data-i18n="drop.hint">Tout reste dans ton navigateur : aucun fichier n'est envoyé.</p>
       </div>
     </section>
   </main>
 
+  <input type="file" id="restoreFiles" accept="application/pdf" multiple hidden>
+
   <dialog id="signDlg">
-    <p>Dessine ta signature</p>
+    <p data-i18n="sign.title">Dessine ta signature</p>
     <canvas id="pad" width="500" height="180"></canvas>
     <div class="row">
-      <button class="btn" id="padClear">Effacer</button>
-      <button class="btn" id="padCancel">Annuler</button>
-      <button class="btn primary" id="padOk">Placer</button>
+      <button class="btn" id="padClear" data-i18n="sign.clear">Effacer</button>
+      <button class="btn" id="padCancel" data-i18n="sign.cancel">Annuler</button>
+      <button class="btn primary" id="padOk" data-i18n="sign.ok">Placer</button>
     </div>
   </dialog>
 
+  <dialog id="savesDlg">
+    <h3 data-i18n="saves.title">Sauvegardes du navigateur</h3>
+    <p class="hint" data-i18n="saves.intro"></p>
+    <div id="savesList"></div>
+    <div class="row">
+      <button class="btn" id="savesClear" data-i18n="saves.deleteAll">Tout supprimer</button>
+      <button class="btn primary" id="savesClose" data-i18n="saves.close">Fermer</button>
+    </div>
+  </dialog>
+
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -20,28 +20,35 @@ const S = {
   undo: [], redo: [],
   name: 'document.pdf',
   current: 0,
+  dirty: false,    // modifications non exportées (garde contre F5 / fermeture)
+  saveId: null,    // sauvegarde (localStorage) à laquelle Ctrl+S se réfère
 };
 const jsPages = new Map();  // cache des pages pdf.js, clé "doc:idx"
 let els = [];               // par page affichée : { el, ov, vp }
 
 // ---------- chargement ----------
 
-async function addDoc(bytes) {
+// meta : { name, size, fp, blank? } – décrit le document sans ses octets (sert à la sauvegarde).
+const fingerprintOf = (js) => (js.fingerprints && js.fingerprints[0]) || js.fingerprint;
+
+async function addDoc(bytes, extra) {
   const js = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
-  S.docs.push({ bytes, js });
+  S.docs.push({ bytes, js, meta: { size: bytes.length, fp: fingerprintOf(js), ...extra } });
   return S.docs.length - 1;
 }
 
 async function openFile(file, merge) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!merge) {
-    S.docs = []; S.pages = []; S.undo = []; S.redo = []; S.sel = null;
+    S.docs = []; S.pages = []; S.undo = []; S.redo = []; S.sel = null; S.dirty = false; S.saveId = null;
     jsPages.clear();
     S.name = file.name;
+    offerSave(null);
   } else pushUndo();
-  const d = await addDoc(bytes);
+  const d = await addDoc(bytes, { name: file.name });
   for (let i = 0; i < S.docs[d].js.numPages; i++) S.pages.push({ doc: d, idx: i, rot: 0, annots: [] });
   await refresh(true);
+  if (!merge) offerSave(latestSaveFor(S.docs[d].meta.fp));
 }
 
 async function getJsPage(p) {
@@ -89,6 +96,8 @@ async function render() {
     ov.className = 'overlay';
     ov.addEventListener('pointerdown', (e) => onDown(e, i));
     ov.addEventListener('dblclick', (e) => onDblClick(e, i));
+    ov.addEventListener('pointermove', (e) => onHover(e, i));
+    ov.addEventListener('pointerleave', () => els[i] && els[i].hot && els[i].hot.remove());
     el.append(canvas, ov);
     view.append(el);
     els[i] = { el, ov, vp };
@@ -204,7 +213,7 @@ async function renderThumbs() {
     const c = document.createElement('canvas');
     const acts = document.createElement('div');
     acts.className = 'acts';
-    acts.innerHTML = '<button data-act="l" title="Pivoter à gauche">↺</button><button data-act="r" title="Pivoter à droite">↻</button><button data-act="x" title="Supprimer">🗑</button>';
+    acts.innerHTML = `<button data-act="l" title="${tr('page.rotL')}">↺</button><button data-act="r" title="${tr('page.rotR')}">↻</button><button data-act="x" title="${tr('page.delete')}">🗑</button>`;
     const num = document.createElement('div');
     num.className = 'num';
     num.textContent = i + 1;
@@ -215,10 +224,7 @@ async function renderThumbs() {
       const act = e.target.dataset.act;
       if (!act) return;
       e.stopPropagation();
-      pushUndo();
-      if (act === 'x') { S.pages.splice(i, 1); S.sel = null; }
-      else p.rot = (p.rot + (act === 'r' ? 90 : 270)) % 360;
-      refresh();
+      pageAction(act, i);
     });
     t.addEventListener('click', () => els[i] && els[i].el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     t.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/page', i));
@@ -240,6 +246,20 @@ async function renderThumbs() {
     await jp.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
   }
 }
+
+// act : 'l' / 'r' (pivoter) ou 'x' (supprimer) ; utilisé par les miniatures et l'onglet Page.
+function pageAction(act, i) {
+  if (!S.pages[i]) return;
+  pushUndo();
+  if (act === 'x') {
+    S.pages.splice(i, 1); S.sel = null;
+    S.current = Math.max(0, Math.min(S.current, S.pages.length - 1));
+  } else S.pages[i].rot = (S.pages[i].rot + (act === 'r' ? 90 : 270)) % 360;
+  refresh();
+}
+$('pgL').onclick = () => pageAction('l', S.current);
+$('pgR').onclick = () => pageAction('r', S.current);
+$('pgX').onclick = () => pageAction('x', S.current);
 
 view.addEventListener('scroll', () => {
   const mid = view.getBoundingClientRect().top + view.clientHeight / 3;
@@ -287,6 +307,15 @@ function onDown(e, i) {
       S.editing = { pi: i, ai };
       setTool('select');
       drawOverlay(i);
+      return;
+    }
+    case 'edit': {
+      const t = e.target.closest('[data-a]');
+      if (t && t.isContentEditable) return;
+      e.preventDefault();
+      stopEditing();
+      if (t && p.annots[+t.dataset.a].type === 'text') { startEdit(i, +t.dataset.a); return; }
+      getBoxes(i).then((boxes) => editTextAt(i, pt, boxes));
       return;
     }
     case 'rect': case 'highlight': case 'whiteout': {
@@ -356,11 +385,108 @@ function onDblClick(e, i) {
   const t = e.target.closest('[data-a]');
   if (!t) return;
   const ai = +t.dataset.a;
-  if (S.pages[i].annots[ai].type !== 'text') return;
+  if (t.isContentEditable || S.pages[i].annots[ai].type !== 'text') return;
+  startEdit(i, ai);
+}
+
+function startEdit(i, ai) {
   pushUndo();
   S.editing = { pi: i, ai };
   S.sel = { pi: i, ai };
   drawOverlay(i);
+}
+
+// ---------- édition du texte existant ----------
+// Le texte d'origine est masqué par un cache blanc, puis remplacé par une annotation texte
+// éditable de même taille/position. Les lignes sont reconstituées en fusionnant les fragments
+// pdf.js contigus (même ligne, même police).
+
+const BASELINE = 0.92; // position de la ligne de base sous le haut d'un texte (cf. export)
+
+function getBoxes(i) {
+  const e = els[i];
+  if (!e.boxesP) e.boxesP = computeBoxes(i);
+  return e.boxesP;
+}
+
+async function computeBoxes(i) {
+  const { vp } = els[i];
+  const jp = await getJsPage(S.pages[i]);
+  const tc = await jp.getTextContent();
+  const boxes = [];
+  let cur = null;
+  const flush = () => {
+    if (cur && cur.str.trim()) boxes.push(cur);
+    cur = null;
+  };
+  for (const it of tc.items) {
+    if (typeof it.str !== 'string') continue;
+    const tx = pdfjsLib.Util.transform(vp.transform, it.transform);
+    const h = Math.hypot(tx[2], tx[3]);
+    if (!h || Math.abs(tx[1]) > 0.05 * h || Math.abs(tx[2]) > 0.05 * h) { flush(); continue; } // texte tourné : ignoré
+    const w = it.width * vp.scale;
+    const fam = (tc.styles[it.fontName] || {}).fontFamily || '';
+    const font = /mono|courier/i.test(fam) ? 'Courier' : /serif|times|georgia/i.test(fam) && !/sans/i.test(fam) ? 'Times' : 'Helvetica';
+    if (cur && cur.fontName === it.fontName && Math.abs(tx[5] - cur.base) < 0.2 * h && tx[4] - (cur.left + cur.width) < 0.6 * h && tx[4] >= cur.left) {
+      cur.str += it.str;
+      cur.width = tx[4] + w - cur.left;
+      continue;
+    }
+    flush();
+    cur = { str: it.str, left: tx[4], base: tx[5], width: w, h, fontName: it.fontName, font };
+  }
+  flush();
+  return boxes.map((b) => ({
+    str: b.str.replace(/\s+$/, ''), font: b.font, size: Math.round(b.h / vp.scale * 10) / 10,
+    left: b.left, top: b.base - BASELINE * b.h,
+    x: b.left - 1, y: b.base - 0.95 * b.h, w: b.width + 2, h: 1.2 * b.h,
+  }));
+}
+
+const inBox = (b, pt, m = 0) => pt.x >= b.x - m && pt.x <= b.x + b.w + m && pt.y >= b.y - m && pt.y <= b.y + b.h + m;
+
+function hitBox(boxes, pt) {
+  return boxes.find((b) => inBox(b, pt, 2));
+}
+
+function editTextAt(i, pt, boxes) {
+  const p = S.pages[i];
+  const { vp } = els[i];
+  const toPdf = (x, y) => vp.convertToPdfPoint(x, y);
+  // Texte déjà édité : on rouvre l'annotation au lieu d'empiler un second cache.
+  for (const w of p.annots) {
+    if (!w.edit) continue;
+    const b = boxOf(w, vp);
+    if (!inBox(b, pt)) continue;
+    const ai = p.annots.findIndex((a) => {
+      if (a.type !== 'text') return false;
+      const [x, y] = vp.convertToViewportPoint(...a.p1);
+      return inBox(b, { x, y }, 3);
+    });
+    if (ai >= 0) startEdit(i, ai);
+    return;
+  }
+  const b = hitBox(boxes, pt);
+  if (!b) return;
+  pushUndo();
+  p.annots.push({ type: 'whiteout', edit: true, color: '#000000', width: 2, p1: toPdf(b.x, b.y), p2: toPdf(b.x + b.w, b.y + b.h) });
+  p.annots.push({ type: 'text', p1: toPdf(b.left, b.top), text: b.str, size: b.size, font: b.font, color: '#000000' });
+  const ai = p.annots.length - 1;
+  S.sel = { pi: i, ai };
+  S.editing = { pi: i, ai };
+  drawOverlay(i);
+}
+
+function onHover(e, i) {
+  const el = els[i];
+  if (!el) return;
+  if (S.tool !== 'edit' || S.editing) { if (el.hot) el.hot.remove(); return; }
+  if (!el.boxes) { getBoxes(i).then((b) => { el.boxes = b; }); return; }
+  const b = hitBox(el.boxes, local(e, el.ov));
+  if (!b) { if (el.hot) el.hot.remove(); return; }
+  if (!el.hot) { el.hot = document.createElement('div'); el.hot.className = 'hot'; }
+  Object.assign(el.hot.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' });
+  if (!el.hot.isConnected) el.ov.append(el.hot);
 }
 
 function track(e, move, up) {
@@ -486,13 +612,26 @@ function setTool(tool) {
   S.tool = tool;
   if (tool !== 'place') S.pending = null;
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+  if (TOOL_TAB[tool]) showTab(TOOL_TAB[tool]);
   updateCursor();
 }
+
+// ---------- ruban ----------
+
+const TOOL_TAB = { select: 'edit', edit: 'edit', text: 'insert', rect: 'insert', highlight: 'insert', whiteout: 'insert', ink: 'insert' };
+
+function showTab(name) {
+  document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('[data-panel]').forEach(p => p.classList.toggle('active', p.dataset.panel === name));
+  $('props').hidden = name !== 'edit' && name !== 'insert';
+}
+document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
 function updateCursor() {
   els.forEach(({ ov }) => {
     ov.classList.toggle('draw', ['text', 'rect', 'highlight', 'whiteout', 'ink'].includes(S.tool));
     ov.classList.toggle('place', S.tool === 'place');
+    ov.classList.toggle('edit', S.tool === 'edit');
   });
 }
 
@@ -523,6 +662,7 @@ function pushUndo(orig, pi, ai) {
   S.undo.push(snap);
   if (S.undo.length > 100) S.undo.shift();
   S.redo = [];
+  S.dirty = true;
 }
 
 function restore(from, to) {
@@ -537,6 +677,7 @@ $('undo').onclick = () => restore(S.undo, S.redo);
 $('redo').onclick = () => restore(S.redo, S.undo);
 
 document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveProject(); return; }
   if (S.editing || e.target.matches('input, select, textarea')) {
     if (e.key === 'Escape' && S.editing) { document.activeElement.blur(); }
     return;
@@ -549,7 +690,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
   else if (e.key === 'Escape') { select(null); setTool('select'); }
   else if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-    const map = { v: 'select', t: 'text', h: 'highlight', r: 'rect', w: 'whiteout', d: 'ink' };
+    const map = { v: 'select', t: 'text', e: 'edit', h: 'highlight', r: 'rect', w: 'whiteout', d: 'ink' };
     if (map[k] && S.pages.length) setTool(map[k]);
   }
 });
@@ -580,7 +721,7 @@ $('blank').onclick = async () => {
   if (ref) { const jp = await getJsPage(ref); size = [jp.view[2] - jp.view[0], jp.view[3] - jp.view[1]]; }
   d.addPage(size);
   if (S.pages.length) pushUndo();
-  const di = await addDoc(await d.save());
+  const di = await addDoc(await d.save(), { name: 'Page blanche', blank: size });
   S.pages.splice(S.pages.length ? S.current + 1 : 0, 0, { doc: di, idx: 0, rot: 0, annots: [] });
   await refresh();
 };
@@ -714,7 +855,7 @@ async function exportPdf() {
 $('download').onclick = async () => {
   if (!S.pages.length) return;
   const btn = $('download');
-  btn.disabled = true; btn.textContent = 'Export…';
+  btn.disabled = true; btn.textContent = tr('export.busy');
   try {
     const bytes = await exportPdf();
     const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
@@ -723,12 +864,213 @@ $('download').onclick = async () => {
     link.download = S.name.replace(/\.pdf$/i, '') + '-modifie.pdf';
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
+    S.dirty = false;
   } catch (err) {
     console.error(err);
-    alert('Échec de l’export : ' + err.message);
+    alert(tr('export.fail', err.message));
   } finally {
-    btn.disabled = false; btn.textContent = 'Télécharger';
+    btn.disabled = false; btn.textContent = tr('btn.download');
   }
 };
+
+// ---------- sauvegardes du projet ----------
+// Une sauvegarde = métadonnées seules (pages, annotations, nom + empreinte de chaque PDF), en JSON
+// dans le localStorage ; plusieurs sauvegardes coexistent. Les PDF ne sont pas stockés : à la
+// restauration l'utilisateur resélectionne les mêmes fichiers, reconnus par l'empreinte pdf.js
+// (calculée à l'ouverture, donc sans surcoût). Ouvrir un PDF qui a une sauvegarde propose de la
+// restaurer, sans jamais l'appliquer d'office. Les pages blanches sont recréées.
+// Écriture explicite uniquement (bouton / Ctrl+S).
+
+const SAVES_KEY = 'openpdf-saves';
+const SAVE_VERSION = 2;
+
+function loadSaves() {
+  try {
+    const all = JSON.parse(localStorage.getItem(SAVES_KEY)) || {};
+    return Object.fromEntries(Object.entries(all).filter(([, s]) => s && s.v === SAVE_VERSION));
+  } catch { return {}; }
+}
+
+function storeSaves(all) {
+  try {
+    localStorage.setItem(SAVES_KEY, JSON.stringify(all));
+    return true;
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
+}
+
+const sortedSaves = () => Object.values(loadSaves()).sort((a, b) => b.savedAt - a.savedAt);
+const fmtDate = (ts) => new Date(ts).toLocaleString(lang);
+const countAnnots = (pages) => pages.reduce((n, p) => n + p.annots.length, 0);
+
+function latestSaveFor(fp) {
+  return sortedSaves().find(s => s.docs.some(m => !m.blank && m.fp === fp)) || null;
+}
+
+function saveProject() {
+  if (!S.pages.length) return;
+  stopEditing();
+  const all = loadSaves();
+  const id = S.saveId && all[S.saveId] ? S.saveId : Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  all[id] = { v: SAVE_VERSION, id, name: S.name, savedAt: Date.now(), docs: S.docs.map(d => d.meta), pages: S.pages };
+  if (!storeSaves(all)) { alert(tr('save.fail')); return; }
+  S.saveId = id;
+  S.dirty = false;
+  if (offered && offered.id === id) offerSave(null);
+  const label = $('save').querySelector('[data-i18n]');
+  label.textContent = tr('save.ok');
+  setTimeout(() => { label.textContent = tr('btn.save'); }, 1500);
+}
+
+// Bandeau « une sauvegarde existe pour ce PDF ».
+let offered = null;
+function offerSave(save) {
+  offered = save;
+  $('restoreBar').hidden = !save;
+  if (save) $('restoreMsg').textContent = tr('bar.found', fmtDate(save.savedAt));
+}
+$('restoreYes').onclick = () => {
+  const save = offered;
+  offerSave(null);
+  startRestore(save, S.docs.filter(d => !d.meta.blank).map(d => d.bytes));
+};
+$('restoreNo').onclick = () => offerSave(null);
+
+// `pre` : octets de PDF déjà en mémoire. S'ils couvrent tous les PDF requis on restaure tout de
+// suite ; sinon on ouvre le sélecteur (sans await avant, pour rester dans le geste utilisateur).
+let pendingRestore = null;
+function startRestore(save, pre) {
+  if (S.dirty && !confirm(tr('restore.confirm'))) return;
+  const needed = save.docs.filter(m => !m.blank).length;
+  if (pre.length >= needed) { applySave(save, pre); return; }
+  pendingRestore = { save, pre };
+  $('restoreFiles').click();
+}
+
+$('restoreFiles').onchange = async (e) => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  if (!pendingRestore || !files.length) return;
+  const { save, pre } = pendingRestore;
+  pendingRestore = null;
+  const chosen = await Promise.all(files.map(async f => new Uint8Array(await f.arrayBuffer())));
+  applySave(save, [...pre, ...chosen]);
+};
+
+async function applySave(save, list) {
+  try {
+    const slots = new Array(save.docs.length).fill(null);
+    for (const bytes of list) {
+      const js = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+      const fp = fingerprintOf(js);
+      const k = save.docs.findIndex((m, j) => !m.blank && !slots[j] && m.fp === fp);
+      if (k >= 0) slots[k] = { bytes, js, meta: save.docs[k] };
+    }
+    for (let k = 0; k < slots.length; k++) {
+      const m = save.docs[k];
+      if (slots[k] || !m.blank) continue;
+      const d = await PDFDocument.create();
+      d.addPage(m.blank);
+      const bytes = await d.save();
+      slots[k] = { bytes, js: await pdfjsLib.getDocument({ data: bytes.slice() }).promise, meta: m };
+    }
+    const missing = save.docs.filter((_, k) => !slots[k]).map(m => m.name);
+    if (missing.length) { alert(tr('restore.missing', missing.join('\n• '))); return; }
+    stopEditing();
+    S.docs = slots; S.undo = []; S.redo = []; S.sel = null;
+    jsPages.clear();
+    S.pages = save.pages;
+    S.name = save.name;
+    S.saveId = save.id;
+    S.current = 0;
+    S.dirty = false;
+    offerSave(null);
+    await refresh(true);
+  } catch (err) {
+    console.error(err);
+    alert(tr('restore.fail', err.message));
+  }
+}
+
+// Écran de gestion des sauvegardes.
+function renderSaves() {
+  const list = $('savesList');
+  list.innerHTML = '';
+  const saves = sortedSaves();
+  $('savesClear').disabled = !saves.length;
+  if (!saves.length) {
+    const p = document.createElement('p');
+    p.className = 'hint';
+    p.textContent = tr('saves.empty');
+    list.append(p);
+    return;
+  }
+  for (const s of saves) {
+    const pdfs = [...new Set(s.docs.filter(m => !m.blank).map(m => m.name))];
+    const row = document.createElement('div');
+    row.className = 'save';
+    const info = document.createElement('div');
+    info.className = 'info';
+    const name = document.createElement('div'); name.className = 'name'; name.textContent = s.name;
+    const meta = document.createElement('div'); meta.className = 'meta';
+    meta.textContent = tr('saves.meta', fmtDate(s.savedAt), s.pages.length, countAnnots(s.pages));
+    const need = document.createElement('div'); need.className = 'meta';
+    need.textContent = pdfs.length ? tr('saves.pdfs', pdfs.join(', ')) : tr('saves.noPdfs');
+    info.append(name, meta, need);
+    const btns = document.createElement('div');
+    btns.className = 'btns';
+    const restore = document.createElement('button');
+    restore.className = 'btn primary'; restore.textContent = tr('saves.restore');
+    restore.onclick = () => { $('savesDlg').close(); startRestore(s, []); };
+    const del = document.createElement('button');
+    del.className = 'btn'; del.textContent = tr('saves.delete');
+    del.onclick = () => {
+      const all = loadSaves();
+      delete all[s.id];
+      storeSaves(all);
+      if (S.saveId === s.id) S.saveId = null;
+      renderSaves();
+    };
+    btns.append(restore, del);
+    row.append(info, btns);
+    list.append(row);
+  }
+}
+
+$('save').onclick = saveProject;
+$('saves').onclick = () => { renderSaves(); $('savesDlg').showModal(); };
+$('savesClose').onclick = () => $('savesDlg').close();
+$('savesClear').onclick = () => {
+  if (!confirm(tr('saves.confirmDeleteAll'))) return;
+  storeSaves({});
+  S.saveId = null;
+  renderSaves();
+};
+
+// ---------- langue ----------
+
+for (const l of Object.keys(I18N)) {
+  const o = document.createElement('option');
+  o.value = l; o.textContent = I18N[l]['lang.name'];
+  $('lang').append(o);
+}
+function applyLang() {
+  applyI18n();
+  if (S.pages.length) renderThumbs();
+  if ($('savesDlg').open) renderSaves();
+  if (offered) $('restoreMsg').textContent = tr('bar.found', fmtDate(offered.savedAt));
+}
+$('lang').value = lang;
+$('lang').onchange = (e) => { setLang(e.target.value); applyLang(); };
+applyI18n();
+
+// Garde contre F5 / Ctrl+R / fermeture de l'onglet : rien n'est sauvegardé, tout serait perdu.
+window.addEventListener('beforeunload', (e) => {
+  if (!S.dirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 
 setTool('select');
