@@ -10,11 +10,11 @@ const I18N = {
 
     'tab.file': 'Fichier', 'tab.edit': 'Édition', 'tab.insert': 'Insertion', 'tab.page': 'Page',
     'g.document': 'Document', 'g.project': 'Projet', 'g.tools': 'Outils', 'g.shapes': 'Texte et formes',
-    'g.drawing': 'Dessin', 'g.image': 'Image', 'g.pages': 'Page courante', 'g.props': 'Propriétés',
+    'g.drawing': 'Dessin', 'g.image': 'Image', 'g.pages': 'Page courante', 'g.props': 'Propriétés', 'g.export': 'Export',
 
     'btn.open': 'Ouvrir', 'btn.merge': 'Ajouter PDF', 'btn.save': 'Sauvegarder', 'btn.saves': 'Sauvegardes…',
     'btn.download': 'Télécharger',
-    'tip.open': 'Ouvrir un PDF', 'tip.merge': 'Ajouter les pages d’un autre PDF',
+    'tip.download': 'Télécharger le PDF modifié', 'tip.open': 'Ouvrir un PDF', 'tip.merge': 'Ajouter les pages d’un autre PDF',
     'tip.save': 'Sauvegarder le projet dans le navigateur (Ctrl+S)',
     'tip.saves': 'Voir, restaurer ou supprimer les sauvegardes',
     'tip.undo': 'Annuler (Ctrl+Z)', 'tip.redo': 'Rétablir (Ctrl+Y)',
@@ -65,11 +65,11 @@ const I18N = {
 
     'tab.file': 'File', 'tab.edit': 'Edit', 'tab.insert': 'Insert', 'tab.page': 'Page',
     'g.document': 'Document', 'g.project': 'Project', 'g.tools': 'Tools', 'g.shapes': 'Text and shapes',
-    'g.drawing': 'Drawing', 'g.image': 'Image', 'g.pages': 'Current page', 'g.props': 'Properties',
+    'g.drawing': 'Drawing', 'g.image': 'Image', 'g.pages': 'Current page', 'g.props': 'Properties', 'g.export': 'Export',
 
     'btn.open': 'Open', 'btn.merge': 'Add PDF', 'btn.save': 'Save', 'btn.saves': 'Saves…',
     'btn.download': 'Download',
-    'tip.open': 'Open a PDF', 'tip.merge': 'Add the pages of another PDF',
+    'tip.download': 'Download the edited PDF', 'tip.open': 'Open a PDF', 'tip.merge': 'Add the pages of another PDF',
     'tip.save': 'Save the project in the browser (Ctrl+S)',
     'tip.saves': 'View, restore or delete saves',
     'tip.undo': 'Undo (Ctrl+Z)', 'tip.redo': 'Redo (Ctrl+Y)',

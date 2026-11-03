@@ -852,10 +852,13 @@ async function exportPdf() {
   return out.save();
 }
 
-$('download').onclick = async () => {
+// Deux boutons (barre du bas et onglet Fichier) : [data-download].
+async function download() {
   if (!S.pages.length) return;
-  const btn = $('download');
-  btn.disabled = true; btn.textContent = tr('export.busy');
+  const btns = [...document.querySelectorAll('[data-download]')];
+  const labels = btns.map(b => b.querySelector('[data-i18n]'));
+  btns.forEach(b => { b.disabled = true; });
+  labels.forEach(l => { l.textContent = tr('export.busy'); });
   try {
     const bytes = await exportPdf();
     const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
@@ -869,9 +872,11 @@ $('download').onclick = async () => {
     console.error(err);
     alert(tr('export.fail', err.message));
   } finally {
-    btn.disabled = false; btn.textContent = tr('btn.download');
+    btns.forEach(b => { b.disabled = false; });
+    labels.forEach(l => { l.textContent = tr('btn.download'); });
   }
-};
+}
+document.querySelectorAll('[data-download]').forEach(b => b.addEventListener('click', download));
 
 // ---------- sauvegardes du projet ----------
 // Une sauvegarde = métadonnées seules (pages, annotations, nom + empreinte de chaque PDF), en JSON

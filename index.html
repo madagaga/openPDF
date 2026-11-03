@@ -10,19 +10,8 @@
 </head>
 <body>
   <header class="app">
-    <div class="qa">
-      <strong class="brand">openPDF</strong>
-      <button class="btn" id="undo" data-i18n-title="tip.undo">↶</button>
-      <button class="btn" id="redo" data-i18n-title="tip.redo">↷</button>
-      <button class="btn" id="zoomOut" data-i18n-title="tip.zoomOut">−</button>
-      <span id="zoomLabel">125%</span>
-      <button class="btn" id="zoomIn" data-i18n-title="tip.zoomIn">+</button>
-      <span class="spacer"></span>
-      <select id="lang" data-i18n-title="lang.label"></select>
-      <button class="btn primary" id="download" data-i18n="btn.download">Télécharger</button>
-    </div>
-
     <nav class="tabs">
+      <strong class="brand">openPDF</strong>
       <button data-tab="file" data-i18n="tab.file">Fichier</button>
       <button data-tab="edit" data-i18n="tab.edit">Édition</button>
       <button data-tab="insert" data-i18n="tab.insert">Insertion</button>
@@ -44,6 +33,12 @@
             <button class="btn rb" id="saves" data-i18n-title="tip.saves"><span class="ic">🗂</span><span data-i18n="btn.saves">Sauvegardes…</span></button>
           </div>
           <div class="rlabel" data-i18n="g.project">Projet</div>
+        </div>
+        <div class="rgroup">
+          <div class="rbtns">
+            <button class="btn rb" data-download data-i18n-title="tip.download"><span class="ic">⬇</span><span data-i18n="btn.download">Télécharger</span></button>
+          </div>
+          <div class="rlabel" data-i18n="g.export">Export</div>
         </div>
       </div>
 
@@ -126,6 +121,17 @@
       </div>
     </section>
   </main>
+
+  <footer class="status">
+    <button class="btn" id="undo" data-i18n-title="tip.undo">↶</button>
+    <button class="btn" id="redo" data-i18n-title="tip.redo">↷</button>
+    <span class="spacer"></span>
+    <select id="lang" data-i18n-title="lang.label"></select>
+    <button class="btn" id="zoomOut" data-i18n-title="tip.zoomOut">−</button>
+    <span id="zoomLabel">125%</span>
+    <button class="btn" id="zoomIn" data-i18n-title="tip.zoomIn">+</button>
+    <button class="btn primary" data-download data-i18n-title="tip.download"><span data-i18n="btn.download">Télécharger</span></button>
+  </footer>
 
   <input type="file" id="restoreFiles" accept="application/pdf" multiple hidden>
 

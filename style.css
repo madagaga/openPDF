@@ -19,13 +19,13 @@ button:disabled { opacity: .5; cursor: default; }
 
 /* barre d'accès rapide + ruban à onglets */
 .app { background: var(--panel); border-bottom: 1px solid var(--border); }
-.qa { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 6px 12px; }
-.qa .spacer { flex: 1; }
-.qa select { padding: 4px; }
-.brand { margin-right: 8px; color: var(--accent); }
+.brand { margin-right: 8px; color: var(--accent); align-self: center; }
+.status { display: flex; gap: 4px; align-items: center; padding: 4px 12px; background: var(--panel); border-top: 1px solid var(--border); }
+.status .spacer { flex: 1; }
+.status select { padding: 4px; }
 #zoomLabel { min-width: 44px; text-align: center; }
 
-.tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--border); }
+.tabs { display: flex; gap: 2px; padding: 4px 12px 0; border-bottom: 1px solid var(--border); }
 .tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 6px 14px; }
 .tabs button:hover { background: #f2f4f8; }
 .tabs button.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
